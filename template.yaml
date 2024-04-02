@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rotation-demo
+
+  Sample SAM Template for rotation-demo
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 10
+
+Parameters:
+  Auth0SecretName:
+    Type: String
+    Default: /security_summit/rotation_workshop/testing
+    Description: The name for the secret in SecretsManager where the Auth0 credentials will be kept
+
+Resources:
+  Auth0M2MRotator:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:820870426321:applications/platform-client-secret-rotator
+        SemanticVersion: 2.2.1
+      Parameters:
+        Endpoint: !Sub https://secretsmanager.${AWS::Region}.${AWS::URLSuffix}
+        FunctionName: !Sub ${AWS::StackName}-client-credentials-secret-rotator
+  Auth0M2MCredentialsSecretKMS:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: The KMS key used by the secret which stores our Auth0 credentials
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+  Auth0M2MCredentialsSecretKMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/secrets_manager_auth0
+      TargetKeyId: !Ref Auth0M2MCredentialsSecretKMS
+  Auth0M2MCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref Auth0SecretName
+      Description: An example client ID and secret.
+      KmsKeyId: !Ref Auth0M2MCredentialsSecretKMS
+      GenerateSecretString:
+        SecretStringTemplate: |-
+          { "id": "zDHudVTrSeqP69uzYlQHwp8lYjhlmbeC" }
+        GenerateStringKey: secret
+        PasswordLength: 64
+        ExcludeCharacters: |-
+          !"#$%&'()*,/:;<>?@[\]^`{|}~
+  ExampleSecretRotationSchedule:
+    Type: AWS::SecretsManager::RotationSchedule
+    Properties:
+      RotationLambdaARN: !GetAtt Auth0M2MRotator.Outputs.RotationLambdaARN
+      RotationRules:
+        AutomaticallyAfterDays: 1
+      SecretId: !Ref Auth0M2MCredentialsSecret
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./auto-rotating-creds
+      Handler: app.lambdaHandler
+      Runtime: nodejs18.x
+      Policies:
+      - Statement:
+        - Sid: SecretsManager
+          Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+          Resource: !Join
+            - ''
+            - - !Ref Auth0M2MCredentialsSecret
+              - '*'
+        - Sid: KMS
+          Effect: Allow
+          Action:
+            - kms:DescribeKey
+            - kms:Encrypt
+            - kms:Decrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey
+            - kms:GenerateDataKeyWithoutPlaintext
+          Resource: !GetAtt Auth0M2MCredentialsSecretKMS.Arn
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          auth0SecretName: !Ref Auth0SecretName
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /hello
+            Method: get
+
+Outputs:
+  HelloWorldApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
