@@ -26,6 +26,7 @@ Resources:
       Parameters:
         Endpoint: !Sub https://secretsmanager.${AWS::Region}.${AWS::URLSuffix}
         FunctionName: !Sub ${AWS::StackName}-client-credentials-secret-rotator
+        KmsKeyArn: !GetAtt Auth0M2MCredentialsSecretKMS.Arn
   Auth0M2MCredentialsSecretKMS:
     Type: 'AWS::KMS::Key'
     Properties:
