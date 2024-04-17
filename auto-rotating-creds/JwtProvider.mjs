@@ -37,7 +37,7 @@ export default class JwtProvider {
             console.log("Returning Auth0 credentials from cache");
             return {clientId: this.clientId, clientSecret: this.clientSecret}
         }
-        const client = new SecretsManagerClient();
+        const client = new SecretsManagerClient(refresh);
 
         console.log("Fetching auth0 credentials from Secrets Manager");
         const response = await client.send(
