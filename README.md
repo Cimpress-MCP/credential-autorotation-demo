@@ -33,7 +33,7 @@ This demo uses [AWS SAM](https://aws.amazon.com/serverless/sam/) to deploy all t
  2. Get CLI access to the AWS account you want to deploy to
  3. Edit `template.yaml` and but your Auth0 client id on line 48
  4. `sam build --region [aws-region]`
- 5. `sam deploy --region [aws-region]`
+ 5. `sam deploy`
  6. Login into the AWS console (UI) and find your secret in AWS secrets manager. Edit it, and copy and paste the client secret for the Auth0 M2M client.  Save!
  7. The deploy step will have spit out a URL.  Hit that with curl/postman/whatever to execute it.  It should spit back a simple string:
  8. In the AWS console, find your secret again, go to the Rotation tab, and hit "Rotate secret immediately".  Your secret should rotate!
